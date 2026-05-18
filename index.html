@@ -1,0 +1,2717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Cluster Atlas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --bg-top: #f9f3e7;
+      --bg-bottom: #e9f2f4;
+      --ink: #0f2f3c;
+      --muted: #5f7380;
+      --card: rgba(255, 255, 255, 0.74);
+      --card-strong: rgba(255, 255, 255, 0.88);
+      --line: rgba(15, 47, 60, 0.1);
+      --navy: #10384a;
+      --teal: #1f7a7b;
+      --seafoam: #d7f1ed;
+      --amber: #e8a64a;
+      --coral: #d56449;
+      --rose: #f7d4c7;
+      --gold: #f3d38a;
+      --shadow: 0 28px 70px rgba(15, 47, 60, 0.14);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Manrope", sans-serif;
+      background:
+        radial-gradient(circle at 10% 12%, rgba(232, 166, 74, 0.18), transparent 26%),
+        radial-gradient(circle at 92% 8%, rgba(31, 122, 123, 0.14), transparent 24%),
+        radial-gradient(circle at 80% 42%, rgba(213, 100, 73, 0.1), transparent 30%),
+        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+      overflow-x: hidden;
+    }
+
+    .ambient {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(6px);
+      opacity: 0.34;
+      animation: drift 16s ease-in-out infinite;
+    }
+
+    .orb-a {
+      top: 8%;
+      left: 4%;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(232, 166, 74, 0.7), rgba(232, 166, 74, 0));
+    }
+
+    .orb-b {
+      right: 6%;
+      top: 22%;
+      width: 280px;
+      height: 280px;
+      background: radial-gradient(circle, rgba(31, 122, 123, 0.52), rgba(31, 122, 123, 0));
+      animation-duration: 18s;
+    }
+
+    .orb-c {
+      left: 28%;
+      bottom: 8%;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(213, 100, 73, 0.34), rgba(213, 100, 73, 0));
+      animation-duration: 20s;
+    }
+
+    @keyframes drift {
+      0%, 100% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      50% {
+        transform: translate3d(18px, -20px, 0) scale(1.06);
+      }
+    }
+
+    .shell {
+      position: relative;
+      z-index: 1;
+      width: min(1440px, calc(100vw - 28px));
+      margin: 18px auto 44px;
+    }
+
+    .glass {
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.58);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.35fr 0.95fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .hero-main {
+      padding: 30px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-main::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -110px auto;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(243, 211, 138, 0.72), rgba(243, 211, 138, 0));
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: rgba(15, 47, 60, 0.06);
+      color: var(--muted);
+      font-size: 0.83rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 12px;
+      max-width: 760px;
+      font-family: "Instrument Serif", serif;
+      font-size: clamp(3rem, 5.4vw, 5.6rem);
+      font-weight: 400;
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+    }
+
+    .lead {
+      max-width: 780px;
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.8;
+    }
+
+    .pill-row,
+    .action-row,
+    .toggle-row,
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(31, 122, 123, 0.08);
+      border: 1px solid rgba(31, 122, 123, 0.12);
+      color: var(--ink);
+      font-size: 0.9rem;
+    }
+
+    .hero-side {
+      padding: 26px;
+      display: grid;
+      gap: 16px;
+      background:
+        linear-gradient(160deg, rgba(16, 56, 74, 0.98), rgba(29, 93, 104, 0.96)),
+        linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+      color: #f3fbfb;
+    }
+
+    .hero-side h2,
+    .panel-head h2,
+    .panel-head h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .hero-side p {
+      margin: 0;
+      color: rgba(243, 251, 251, 0.76);
+      line-height: 1.65;
+      font-size: 0.93rem;
+    }
+
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .signal-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .signal-card span,
+    .metric-card span,
+    .stat-card span,
+    .insight-card span,
+    .history-card span,
+    .mini-tag {
+      display: block;
+      color: rgba(243, 251, 251, 0.7);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+
+    .signal-card strong {
+      font-size: 1.45rem;
+      line-height: 1.1;
+    }
+
+    .status-box {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(31, 122, 123, 0.12);
+      background: rgba(31, 122, 123, 0.08);
+      color: var(--ink);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    .status-box.warn {
+      background: rgba(232, 166, 74, 0.16);
+      border-color: rgba(232, 166, 74, 0.3);
+    }
+
+    .status-box.danger {
+      background: rgba(213, 100, 73, 0.15);
+      border-color: rgba(213, 100, 73, 0.3);
+    }
+
+    .status-box.success {
+      background: rgba(31, 122, 123, 0.14);
+      border-color: rgba(31, 122, 123, 0.22);
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .metric-card {
+      padding: 18px;
+      min-height: 124px;
+      background: var(--card-strong);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 18px 40px rgba(15, 47, 60, 0.08);
+    }
+
+    .metric-card span {
+      color: var(--muted);
+    }
+
+    .metric-card strong {
+      display: block;
+      font-size: 1.9rem;
+      line-height: 1.06;
+      margin-bottom: 8px;
+    }
+
+    .metric-card small {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .tab-button,
+    .button,
+    .ghost-button,
+    .file-label {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 16px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 180ms ease, filter 180ms ease, background 180ms ease;
+    }
+
+    .tab-button {
+      background: rgba(15, 47, 60, 0.08);
+      color: var(--ink);
+    }
+
+    .tab-button.active {
+      background: var(--navy);
+      color: #f5fbfb;
+      transform: translateY(-1px);
+    }
+
+    .button {
+      background: var(--navy);
+      color: #f5fbfb;
+    }
+
+    .button.alt {
+      background: var(--coral);
+    }
+
+    .ghost-button,
+    .file-label {
+      background: rgba(15, 47, 60, 0.08);
+      color: var(--ink);
+    }
+
+    .tab-button:hover,
+    .button:hover,
+    .ghost-button:hover,
+    .file-label:hover {
+      transform: translateY(-1px);
+      filter: saturate(1.04);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .grid-2,
+    .grid-3,
+    .grid-4 {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-2 {
+      grid-template-columns: 0.9fr 1.1fr;
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .panel {
+      padding: 22px;
+      border-radius: var(--radius-xl);
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .panel-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 0.93rem;
+    }
+
+    .control-stack,
+    .field,
+    .field-inline {
+      display: grid;
+      gap: 8px;
+    }
+
+    .control-stack {
+      gap: 14px;
+    }
+
+    .field label,
+    .field-inline label,
+    .check-group strong,
+    .table-note strong {
+      font-size: 0.82rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--amber);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 15px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.88);
+      color: var(--ink);
+      font: inherit;
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--navy);
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .field-inline {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .check-group {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.64);
+      border: 1px solid var(--line);
+    }
+
+    .check-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .check-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(15, 47, 60, 0.06);
+    }
+
+    .compact-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid var(--line);
+    }
+
+    .stat-card span,
+    .insight-card span,
+    .history-card span {
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-card strong,
+    .insight-card strong,
+    .history-card strong {
+      display: block;
+      font-size: 1.2rem;
+      line-height: 1.2;
+    }
+
+    .stat-card small,
+    .insight-card small,
+    .history-card small {
+      display: block;
+      margin-top: 8px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .chart {
+      width: 100%;
+      min-height: 360px;
+    }
+
+    .chart.tall {
+      min-height: 430px;
+    }
+
+    .insight-grid,
+    .history-grid,
+    .persona-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .insight-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .persona-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .insight-card,
+    .history-card,
+    .persona-card {
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid var(--line);
+    }
+
+    .persona-card h4,
+    .history-card h4,
+    .theory-card h4 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+
+    .persona-card p,
+    .history-card p,
+    .theory-card p,
+    .table-note,
+    .micro-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 0.92rem;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid rgba(15, 47, 60, 0.08);
+      font-size: 0.92rem;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: rgba(250, 245, 236, 0.96);
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: rgba(15, 47, 60, 0.08);
+      color: var(--ink);
+    }
+
+    .tag.good {
+      background: rgba(31, 122, 123, 0.14);
+      color: #185f60;
+    }
+
+    .tag.alt {
+      background: rgba(232, 166, 74, 0.18);
+      color: #7a5417;
+    }
+
+    .tag.warn {
+      background: rgba(213, 100, 73, 0.14);
+      color: #8a3924;
+    }
+
+    .history-grid {
+      max-height: 420px;
+      overflow: auto;
+    }
+
+    .theory-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .theory-card {
+      padding: 22px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+    }
+
+    .theory-table {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .footer-note {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+
+    @media (max-width: 1200px) {
+      .hero,
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .theory-grid,
+      .insight-grid,
+      .persona-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(100vw - 16px, 100%);
+        margin: 8px auto 24px;
+      }
+
+      .hero-main,
+      .hero-side,
+      .panel {
+        padding: 18px;
+      }
+
+      h1 {
+        font-size: 2.9rem;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .signal-grid,
+      .compact-stat-grid,
+      .field-inline {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+  </div>
+
+  <main class="shell">
+    <section class="hero">
+      <article class="glass hero-main">
+        <div class="eyebrow">Mini data science + web app in one file</div>
+        <h1>Customer Cluster Atlas</h1>
+        <p class="lead">
+          A single-page customer segmentation studio that compares <strong>k-Means</strong> and
+          <strong>k-Medoids</strong> on the classic Mall Customers dataset, then lets you upload
+          another customer dataset and run the same workflow again with visual insights, exportable
+          results, and Firebase-backed run history.
+        </p>
+        <div class="pill-row">
+          <div class="pill">Default Mall Customers dataset</div>
+          <div class="pill">k-Means vs k-Medoids comparison</div>
+          <div class="pill">Elbow and silhouette analysis</div>
+          <div class="pill">Interactive charts and persona insights</div>
+        </div>
+        <div class="action-row" style="margin-top: 20px;">
+          <button id="loadDefaultBtn" class="button">Load standard dataset</button>
+          <button id="runAnalysisHeroBtn" class="button alt">Run clustering now</button>
+          <button id="downloadResultsHeroBtn" class="ghost-button">Download labeled CSV</button>
+        </div>
+        <div id="datasetStatus" class="status-box" style="margin-top: 18px;">
+          Loading the built-in Mall Customers dataset...
+        </div>
+      </article>
+
+      <aside class="glass hero-side">
+        <div>
+          <h2>Live project pulse</h2>
+          <p>The app keeps the project practical: clear comparison metrics, actual cluster visuals, and an easy story for demo day or viva.</p>
+        </div>
+        <div class="signal-grid">
+          <div class="signal-card">
+            <span>Current dataset</span>
+            <strong id="heroDatasetName">Mall_Customers.csv</strong>
+          </div>
+          <div class="signal-card">
+            <span>Rows ready</span>
+            <strong id="heroDatasetRows">0</strong>
+          </div>
+          <div class="signal-card">
+            <span>Active K</span>
+            <strong id="heroKValue">5</strong>
+          </div>
+          <div class="signal-card">
+            <span>Storage mode</span>
+            <strong id="heroStorageMode">Starting</strong>
+          </div>
+        </div>
+        <div id="storageStatus" class="status-box success">
+          Connecting to Firestore. If your rules block client writes, the app will keep history in local browser storage automatically.
+        </div>
+      </aside>
+    </section>
+
+    <section class="metric-grid">
+      <article class="metric-card">
+        <span>Customers</span>
+        <strong id="metricCustomers">0</strong>
+        <small>Rows currently mapped into Age, Income, and Spending dimensions.</small>
+      </article>
+      <article class="metric-card">
+        <span>Features used</span>
+        <strong id="metricFeatures">3</strong>
+        <small>Clustering can use Age, Annual Income, Spending Score, or a subset of them.</small>
+      </article>
+      <article class="metric-card">
+        <span>k-Means silhouette</span>
+        <strong id="metricKMeansSilhouette">-</strong>
+        <small>Higher is better. Measures separation and cohesion.</small>
+      </article>
+      <article class="metric-card">
+        <span>k-Medoids silhouette</span>
+        <strong id="metricKMedoidsSilhouette">-</strong>
+        <small>Often more robust when unusual points are present.</small>
+      </article>
+      <article class="metric-card">
+        <span>Agreement</span>
+        <strong id="metricAgreement">-</strong>
+        <small>Pairwise consistency between the two algorithms on this dataset.</small>
+      </article>
+      <article class="metric-card">
+        <span>Winner</span>
+        <strong id="metricWinner">-</strong>
+        <small id="metricWinnerNote">Run the comparison to see which model segments your data more cleanly.</small>
+      </article>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab-button active" data-target="labTab">Cluster Lab</button>
+      <button class="tab-button" data-target="datasetTab">Dataset Studio</button>
+      <button class="tab-button" data-target="notesTab">Theory and Viva</button>
+    </nav>
+
+    <section id="labTab" class="tab-panel active">
+      <div class="grid-2">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Analysis controls</h2>
+              <p>Choose how clustering should behave, then compare both algorithms on the same customer space.</p>
+            </div>
+            <div id="analysisSampleTag" class="tag">Using full dataset</div>
+          </div>
+
+          <div class="control-stack">
+            <div class="field">
+              <label for="clusterCount">Number of clusters (k)</label>
+              <input id="clusterCount" type="range" min="2" max="8" step="1" value="5">
+              <div class="chip-row">
+                <div class="tag alt">Selected K: <strong id="clusterCountValue">5</strong></div>
+                <div class="tag" id="normalizationTag">Normalized features</div>
+              </div>
+            </div>
+
+            <div class="check-group">
+              <strong>Feature set</strong>
+              <div class="check-items">
+                <label class="check-pill"><input id="featureAge" type="checkbox" checked> Age</label>
+                <label class="check-pill"><input id="featureIncome" type="checkbox" checked> Annual Income</label>
+                <label class="check-pill"><input id="featureSpending" type="checkbox" checked> Spending Score</label>
+                <label class="check-pill"><input id="normalizeToggle" type="checkbox" checked> Standardize before clustering</label>
+              </div>
+            </div>
+
+            <div class="compact-stat-grid">
+              <div class="stat-card">
+                <span>k-Means compactness</span>
+                <strong id="kmeansCompactness">-</strong>
+                <small>Average distance from each customer to its centroid.</small>
+              </div>
+              <div class="stat-card">
+                <span>k-Medoids compactness</span>
+                <strong id="kmedoidsCompactness">-</strong>
+                <small>Average distance from each customer to its medoid.</small>
+              </div>
+              <div class="stat-card">
+                <span>Best elbow hint</span>
+                <strong id="elbowHint">-</strong>
+                <small>Suggested K from the strongest elbow bend in the k-Means curve.</small>
+              </div>
+              <div class="stat-card">
+                <span>Analysis scope</span>
+                <strong id="analysisRowsUsed">-</strong>
+                <small>Rows used directly during the clustering optimization phase.</small>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button id="runAnalysisBtn" class="button">Run comparison</button>
+              <button id="saveRunBtn" class="ghost-button">Save this run</button>
+              <button id="downloadResultsBtn" class="ghost-button">Download labeled CSV</button>
+            </div>
+
+            <div id="analysisStatus" class="status-box">
+              The project is ready. Run clustering to generate charts, profiles, and comparison metrics.
+            </div>
+          </div>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Auto-generated comparison insight</h2>
+              <p>A concise summary you can present directly while explaining the project.</p>
+            </div>
+            <div id="winnerTag" class="tag">Awaiting analysis</div>
+          </div>
+          <div id="summaryInsight" class="status-box">
+            The default Mall Customers dataset will be loaded automatically. Once clustering runs, this panel will explain which algorithm produced cleaner groups and why.
+          </div>
+          <div class="insight-grid" style="margin-top: 16px;">
+            <div class="insight-card">
+              <span>k-Means center logic</span>
+              <strong id="kmeansCenterSummary">-</strong>
+              <small>Centroids represent average behavior in each segment.</small>
+            </div>
+            <div class="insight-card">
+              <span>k-Medoids center logic</span>
+              <strong id="kmedoidsCenterSummary">-</strong>
+              <small>Medoids are actual customer rows, which improves robustness.</small>
+            </div>
+            <div class="insight-card">
+              <span>Business takeaway</span>
+              <strong id="businessTakeaway">-</strong>
+              <small>Use this as the non-technical conclusion for your presentation.</small>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="grid-2" style="margin-top: 18px;">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>k-Means clusters</h2>
+              <p>Income vs Spending Score, with Age reflected in marker size.</p>
+            </div>
+            <div class="tag good" id="kmeansTag">Centroid based</div>
+          </div>
+          <div id="kmeansScatter" class="chart tall"></div>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>k-Medoids clusters</h2>
+              <p>The same customers grouped around representative real points.</p>
+            </div>
+            <div class="tag alt" id="kmedoidsTag">Medoid based</div>
+          </div>
+          <div id="kmedoidsScatter" class="chart tall"></div>
+        </article>
+      </div>
+
+      <div class="grid-2" style="margin-top: 18px;">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Elbow method</h2>
+              <p>k-Means compactness across candidate K values from 2 to 8.</p>
+            </div>
+          </div>
+          <div id="elbowChart" class="chart"></div>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Algorithm scorecard</h2>
+              <p>Silhouette, compactness, and stability side by side.</p>
+            </div>
+          </div>
+          <div id="comparisonChart" class="chart"></div>
+        </article>
+      </div>
+
+      <div class="grid-2" style="margin-top: 18px;">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>k-Means cluster profiles</h2>
+              <p>Average normalized profile of each segment.</p>
+            </div>
+          </div>
+          <div id="kmeansProfileHeatmap" class="chart"></div>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>k-Medoids cluster profiles</h2>
+              <p>Profile heatmap based on actual customer-centered segments.</p>
+            </div>
+          </div>
+          <div id="kmedoidsProfileHeatmap" class="chart"></div>
+        </article>
+      </div>
+
+      <div class="grid-2" style="margin-top: 18px;">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>k-Means personas</h2>
+              <p>Readable segment descriptions generated from cluster profiles.</p>
+            </div>
+          </div>
+          <div id="kmeansPersonas" class="persona-grid"></div>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>k-Medoids personas</h2>
+              <p>Each segment is described from representative real customers.</p>
+            </div>
+          </div>
+          <div id="kmedoidsPersonas" class="persona-grid"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="datasetTab" class="tab-panel">
+      <div class="grid-2">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Dataset source</h2>
+              <p>Use the built-in Mall Customers dataset, or upload another CSV and map its columns to the same clustering workflow.</p>
+            </div>
+          </div>
+
+          <div class="control-stack">
+            <div class="action-row">
+              <button id="loadDefaultDatasetBtn" class="button">Use Mall Customers</button>
+              <label class="file-label" for="datasetUpload">Choose another CSV</label>
+              <input id="datasetUpload" type="file" accept=".csv">
+              <button id="parseUploadBtn" class="ghost-button">Parse upload</button>
+            </div>
+
+            <div id="uploadStatus" class="status-box">
+              Upload a customer dataset with Age, Annual Income, and Spending-like columns. If names differ, map them below.
+            </div>
+
+            <div class="field">
+              <label for="datasetLabel">Dataset label</label>
+              <input id="datasetLabel" type="text" value="Mall_Customers.csv">
+            </div>
+
+            <div class="field-inline">
+              <div class="field">
+                <label for="mapId">Customer ID column</label>
+                <select id="mapId"></select>
+              </div>
+              <div class="field">
+                <label for="mapGender">Gender column</label>
+                <select id="mapGender"></select>
+              </div>
+            </div>
+
+            <div class="field-inline">
+              <div class="field">
+                <label for="mapAge">Age column</label>
+                <select id="mapAge"></select>
+              </div>
+              <div class="field">
+                <label for="mapIncome">Annual Income column</label>
+                <select id="mapIncome"></select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="mapSpending">Spending Score column</label>
+              <select id="mapSpending"></select>
+            </div>
+
+            <div class="action-row">
+              <button id="applyMappingBtn" class="button alt">Apply mapping and analyze</button>
+              <button id="previewOnlyBtn" class="ghost-button">Preview mapped data</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Recent runs</h2>
+              <p>Each save keeps a concise summary in local storage and attempts to mirror it to Firestore.</p>
+            </div>
+            <div class="tag" id="historyModeTag">Local history</div>
+          </div>
+          <div id="historyList" class="history-grid"></div>
+        </article>
+      </div>
+
+      <div class="grid-2" style="margin-top: 18px;">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Dataset preview</h2>
+              <p>The first rows after mapping into the Age, Income, and Spending structure.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="datasetPreviewTable">
+              <thead>
+                <tr>
+                  <th>Customer ID</th>
+                  <th>Gender</th>
+                  <th>Age</th>
+                  <th>Annual Income</th>
+                  <th>Spending Score</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Clustered export preview</h2>
+              <p>The download includes both algorithm labels and persona names for every row.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="resultsPreviewTable">
+              <thead>
+                <tr>
+                  <th>Customer ID</th>
+                  <th>Age</th>
+                  <th>Income</th>
+                  <th>Spending</th>
+                  <th>k-Means</th>
+                  <th>k-Medoids</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="footer-note">
+            If your uploaded dataset is larger than 1,200 rows, the app will optimize on a deterministic sample for speed,
+            then label the full dataset with the final centers so the exported output still covers every row.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="notesTab" class="tab-panel">
+      <div class="theory-grid">
+        <article class="glass theory-card">
+          <h4>Project objective</h4>
+          <p>
+            This project segments customers by Age, Annual Income, and Spending Score to reveal meaningful behavior groups.
+            The app compares two clustering approaches, shows the difference visually, and translates the math into actionable business insights.
+          </p>
+        </article>
+
+        <article class="glass theory-card">
+          <h4>Why k-Means</h4>
+          <p>
+            k-Means uses centroids, which are average points. It is fast and excellent for clean, compact datasets, which is why it is often the first algorithm taught for customer segmentation.
+          </p>
+        </article>
+
+        <article class="glass theory-card">
+          <h4>Why k-Medoids</h4>
+          <p>
+            k-Medoids chooses actual data points as centers. That makes it slower, but more resistant to unusual values and easier to explain because each segment has a real representative customer.
+          </p>
+        </article>
+      </div>
+
+      <div class="grid-2" style="margin-top: 18px;">
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Comparison table</h2>
+              <p>Useful for your report, presentation, or viva answer.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="theory-table">
+              <thead>
+                <tr>
+                  <th>Feature</th>
+                  <th>k-Means</th>
+                  <th>k-Medoids</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Center type</td>
+                  <td>Average point or centroid</td>
+                  <td>Actual data point or medoid</td>
+                </tr>
+                <tr>
+                  <td>Speed</td>
+                  <td>Fast</td>
+                  <td>Slower</td>
+                </tr>
+                <tr>
+                  <td>Outlier sensitivity</td>
+                  <td>Higher</td>
+                  <td>Lower</td>
+                </tr>
+                <tr>
+                  <td>Interpretability</td>
+                  <td>Good</td>
+                  <td>Very intuitive</td>
+                </tr>
+                <tr>
+                  <td>Best use case</td>
+                  <td>Large, well-behaved numeric data</td>
+                  <td>Data with potential unusual records</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="glass panel">
+          <div class="panel-head">
+            <div>
+              <h2>Architecture summary</h2>
+              <p>What the app is doing behind the scenes.</p>
+            </div>
+          </div>
+          <div class="insight-grid" style="grid-template-columns: 1fr;">
+            <div class="insight-card">
+              <span>Data layer</span>
+              <strong>CSV parsing + smart column mapping</strong>
+              <small>Handles the default Mall Customers dataset and alternate uploads with different header names.</small>
+            </div>
+            <div class="insight-card">
+              <span>Analytics layer</span>
+              <strong>k-Means, k-Medoids, elbow, silhouette</strong>
+              <small>Everything runs client-side in the browser, so the project stays a true single-file web app.</small>
+            </div>
+            <div class="insight-card">
+              <span>Persistence layer</span>
+              <strong>Firestore with local fallback</strong>
+              <small>Saved runs are written to Firestore when rules allow it, otherwise they remain in local browser history without breaking the app.</small>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <article class="glass panel" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <h2>Important Firebase note</h2>
+            <p>Because this is a single HTML file, the Firebase web config is used directly in the browser.</p>
+          </div>
+        </div>
+        <div class="status-box warn">
+          Your Firebase config is safe to place in the frontend, but Firestore access is controlled by your Firebase security rules.
+          If writes are denied, the app still works and saves run history locally until you relax the rules or add authentication later.
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyB6KNVrxZp1iarviDpnMwTAfroFc4RygCc",
+      authDomain: "data-clustering.firebaseapp.com",
+      projectId: "data-clustering",
+      storageBucket: "data-clustering.firebasestorage.app",
+      messagingSenderId: "478683027305",
+      appId: "1:478683027305:web:a2953078ac8bfa3da70ff8",
+      measurementId: "G-S9V60W0GQM"
+    };
+
+    const DEFAULT_DATASET_CSV = `CustomerID,Genre,Age,Annual Income (k$),Spending Score (1-100)
+0001,Male,19,15,39
+0002,Male,21,15,81
+0003,Female,20,16,6
+0004,Female,23,16,77
+0005,Female,31,17,40
+0006,Female,22,17,76
+0007,Female,35,18,6
+0008,Female,23,18,94
+0009,Male,64,19,3
+0010,Female,30,19,72
+0011,Male,67,19,14
+0012,Female,35,19,99
+0013,Female,58,20,15
+0014,Female,24,20,77
+0015,Male,37,20,13
+0016,Male,22,20,79
+0017,Female,35,21,35
+0018,Male,20,21,66
+0019,Male,52,23,29
+0020,Female,35,23,98
+0021,Male,35,24,35
+0022,Male,25,24,73
+0023,Female,46,25,5
+0024,Male,31,25,73
+0025,Female,54,28,14
+0026,Male,29,28,82
+0027,Female,45,28,32
+0028,Male,35,28,61
+0029,Female,40,29,31
+0030,Female,23,29,87
+0031,Male,60,30,4
+0032,Female,21,30,73
+0033,Male,53,33,4
+0034,Male,18,33,92
+0035,Female,49,33,14
+0036,Female,21,33,81
+0037,Female,42,34,17
+0038,Female,30,34,73
+0039,Female,36,37,26
+0040,Female,20,37,75
+0041,Female,65,38,35
+0042,Male,24,38,92
+0043,Male,48,39,36
+0044,Female,31,39,61
+0045,Female,49,39,28
+0046,Female,24,39,65
+0047,Female,50,40,55
+0048,Female,27,40,47
+0049,Female,29,40,42
+0050,Female,31,40,42
+0051,Female,49,42,52
+0052,Male,33,42,60
+0053,Female,31,43,54
+0054,Male,59,43,60
+0055,Female,50,43,45
+0056,Male,47,43,41
+0057,Female,51,44,50
+0058,Male,69,44,46
+0059,Female,27,46,51
+0060,Male,53,46,46
+0061,Male,70,46,56
+0062,Male,19,46,55
+0063,Female,67,47,52
+0064,Female,54,47,59
+0065,Male,63,48,51
+0066,Male,18,48,59
+0067,Female,43,48,50
+0068,Female,68,48,48
+0069,Male,19,48,59
+0070,Female,32,48,47
+0071,Male,70,49,55
+0072,Female,47,49,42
+0073,Female,60,50,49
+0074,Female,60,50,56
+0075,Male,59,54,47
+0076,Male,26,54,54
+0077,Female,45,54,53
+0078,Male,40,54,48
+0079,Female,23,54,52
+0080,Female,49,54,42
+0081,Male,57,54,51
+0082,Male,38,54,55
+0083,Male,67,54,41
+0084,Female,46,54,44
+0085,Female,21,54,57
+0086,Male,48,54,46
+0087,Female,55,57,58
+0088,Female,22,57,55
+0089,Female,34,58,60
+0090,Female,50,58,46
+0091,Female,68,59,55
+0092,Male,18,59,41
+0093,Male,48,60,49
+0094,Female,40,60,40
+0095,Female,32,60,42
+0096,Male,24,60,52
+0097,Female,47,60,47
+0098,Female,27,60,50
+0099,Male,48,61,42
+0100,Male,20,61,49
+0101,Female,23,62,41
+0102,Female,49,62,48
+0103,Male,67,62,59
+0104,Male,26,62,55
+0105,Male,49,62,56
+0106,Female,21,62,42
+0107,Female,66,63,50
+0108,Male,54,63,46
+0109,Male,68,63,43
+0110,Male,66,63,48
+0111,Male,65,63,52
+0112,Female,19,63,54
+0113,Female,38,64,42
+0114,Male,19,64,46
+0115,Female,18,65,48
+0116,Female,19,65,50
+0117,Female,63,65,43
+0118,Female,49,65,59
+0119,Female,51,67,43
+0120,Female,50,67,57
+0121,Male,27,67,56
+0122,Female,38,67,40
+0123,Female,40,69,58
+0124,Male,39,69,91
+0125,Female,23,70,29
+0126,Female,31,70,77
+0127,Male,43,71,35
+0128,Male,40,71,95
+0129,Male,59,71,11
+0130,Male,38,71,75
+0131,Male,47,71,9
+0132,Male,39,71,75
+0133,Female,25,72,34
+0134,Female,31,72,71
+0135,Male,20,73,5
+0136,Female,29,73,88
+0137,Female,44,73,7
+0138,Male,32,73,73
+0139,Male,19,74,10
+0140,Female,35,74,72
+0141,Female,57,75,5
+0142,Male,32,75,93
+0143,Female,28,76,40
+0144,Female,32,76,87
+0145,Male,25,77,12
+0146,Male,28,77,97
+0147,Male,48,77,36
+0148,Female,32,77,74
+0149,Female,34,78,22
+0150,Male,34,78,90
+0151,Male,43,78,17
+0152,Male,39,78,88
+0153,Female,44,78,20
+0154,Female,38,78,76
+0155,Female,47,78,16
+0156,Female,27,78,89
+0157,Male,37,78,1
+0158,Female,30,78,78
+0159,Male,34,78,1
+0160,Female,30,78,73
+0161,Female,56,79,35
+0162,Female,29,79,83
+0163,Male,19,81,5
+0164,Female,31,81,93
+0165,Male,50,85,26
+0166,Female,36,85,75
+0167,Male,42,86,20
+0168,Female,33,86,95
+0169,Female,36,87,27
+0170,Male,32,87,63
+0171,Male,40,87,13
+0172,Male,28,87,75
+0173,Male,36,87,10
+0174,Male,36,87,92
+0175,Female,52,88,13
+0176,Female,30,88,86
+0177,Male,58,88,15
+0178,Male,27,88,69
+0179,Male,59,93,14
+0180,Male,35,93,90
+0181,Female,37,97,32
+0182,Female,32,97,86
+0183,Male,46,98,15
+0184,Female,29,98,88
+0185,Female,41,99,39
+0186,Male,30,99,97
+0187,Female,54,101,24
+0188,Male,28,101,68
+0189,Female,41,103,17
+0190,Female,36,103,85
+0191,Female,34,103,23
+0192,Female,32,103,69
+0193,Male,33,113,8
+0194,Female,38,113,91
+0195,Female,47,120,16
+0196,Female,35,120,79
+0197,Female,45,126,28
+0198,Male,32,126,74
+0199,Male,32,137,18
+0200,Male,30,137,83`;
+
+    const COLORS = ["#10384a", "#1f7a7b", "#e8a64a", "#d56449", "#6f9f8d", "#9d6b53", "#8b9db0", "#c47c5b"];
+    const HISTORY_KEY = "customer_cluster_atlas_history_v1";
+    const SAMPLE_LIMIT = 1200;
+
+    const state = {
+      firestore: null,
+      historyMode: "Local history",
+      rawRows: [],
+      headers: [],
+      customers: [],
+      datasetLabel: "Mall_Customers.csv",
+      latestAnalysis: null,
+      mapping: {},
+      plotlyConfig: { responsive: true, displayModeBar: false },
+      savingDisabledNoticeShown: false
+    };
+
+    function seededRandom(seed) {
+      let value = seed >>> 0;
+      return function() {
+        value += 0x6d2b79f5;
+        let temp = value;
+        temp = Math.imul(temp ^ temp >>> 15, temp | 1);
+        temp ^= temp + Math.imul(temp ^ temp >>> 7, temp | 61);
+        return ((temp ^ temp >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function formatNumber(value, decimals = 0) {
+      if (!Number.isFinite(value)) return "-";
+      return value.toLocaleString(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+    }
+
+    function formatDecimal(value, decimals = 3) {
+      if (!Number.isFinite(value)) return "-";
+      return Number(value).toFixed(decimals);
+    }
+
+    function formatPercent(value, decimals = 1) {
+      if (!Number.isFinite(value)) return "-";
+      return `${(value * 100).toFixed(decimals)}%`;
+    }
+
+    function normalizeHeader(header) {
+      return String(header || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
+    }
+
+    function toNumber(value) {
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+      const cleaned = String(value ?? "")
+        .replace(/[$,%]/g, "")
+        .trim();
+      const parsed = Number(cleaned);
+      return Number.isFinite(parsed) ? parsed : NaN;
+    }
+
+    function parseCsvText(text) {
+      const parsed = Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true
+      });
+
+      if (parsed.errors && parsed.errors.length) {
+        const serious = parsed.errors.find((error) => error.code !== "UndetectableDelimiter");
+        if (serious) throw new Error(serious.message);
+      }
+      return parsed.data;
+    }
+
+    async function readUploadedCsv(file) {
+      const text = await file.text();
+      return parseCsvText(text);
+    }
+
+    function suggestMapping(headers) {
+      const normalizedMap = Object.fromEntries(headers.map((header) => [header, normalizeHeader(header)]));
+
+      function findHeader(matchers) {
+        for (const header of headers) {
+          const normalized = normalizedMap[header];
+          if (matchers.some((matcher) => normalized.includes(matcher))) {
+            return header;
+          }
+        }
+        return "";
+      }
+
+      return {
+        id: findHeader(["customerid", "customernumber", "userid", "id"]),
+        gender: findHeader(["genre", "gender", "sex"]),
+        age: findHeader(["age"]),
+        income: findHeader(["annualincome", "income", "salary", "earn"]),
+        spending: findHeader(["spendingscore", "spending", "score", "purchase"])
+      };
+    }
+
+    function populateMappingSelect(selectId, headers, selectedValue, optional = true) {
+      const select = document.getElementById(selectId);
+      const emptyLabel = optional ? "Not used" : "Select a column";
+      select.innerHTML = [`<option value="">${emptyLabel}</option>`]
+        .concat(headers.map((header) => `<option value="${escapeHtml(header)}">${escapeHtml(header)}</option>`))
+        .join("");
+      select.value = headers.includes(selectedValue) ? selectedValue : "";
+    }
+
+    function renderMappingControls(headers, suggestions = {}) {
+      populateMappingSelect("mapId", headers, suggestions.id || "", true);
+      populateMappingSelect("mapGender", headers, suggestions.gender || "", true);
+      populateMappingSelect("mapAge", headers, suggestions.age || "", false);
+      populateMappingSelect("mapIncome", headers, suggestions.income || "", false);
+      populateMappingSelect("mapSpending", headers, suggestions.spending || "", false);
+    }
+
+    function buildCustomersFromMapping(rows, mapping) {
+      const mapped = [];
+      rows.forEach((row, index) => {
+        const age = toNumber(row[mapping.age]);
+        const income = toNumber(row[mapping.income]);
+        const spending = toNumber(row[mapping.spending]);
+        if (![age, income, spending].every(Number.isFinite)) return;
+
+        mapped.push({
+          index,
+          customerId: mapping.id ? String(row[mapping.id] ?? `C${index + 1}`) : `C${index + 1}`,
+          gender: mapping.gender ? String(row[mapping.gender] ?? "") : "",
+          age,
+          income,
+          spending,
+          raw: row
+        });
+      });
+      return mapped;
+    }
+
+    function activeFeatureKeys() {
+      const keys = [];
+      if (document.getElementById("featureAge").checked) keys.push("age");
+      if (document.getElementById("featureIncome").checked) keys.push("income");
+      if (document.getElementById("featureSpending").checked) keys.push("spending");
+      return keys;
+    }
+
+    function standardizeMatrix(matrix) {
+      const columns = matrix[0].length;
+      const means = new Array(columns).fill(0);
+      const stds = new Array(columns).fill(0);
+
+      for (const row of matrix) {
+        row.forEach((value, index) => {
+          means[index] += value;
+        });
+      }
+      for (let index = 0; index < columns; index += 1) {
+        means[index] /= matrix.length;
+      }
+
+      for (const row of matrix) {
+        row.forEach((value, index) => {
+          stds[index] += (value - means[index]) ** 2;
+        });
+      }
+      for (let index = 0; index < columns; index += 1) {
+        stds[index] = Math.sqrt(stds[index] / Math.max(matrix.length - 1, 1)) || 1;
+      }
+
+      return {
+        normalized: matrix.map((row) => row.map((value, index) => (value - means[index]) / stds[index])),
+        means,
+        stds
+      };
+    }
+
+    function getFeatureMatrix(customers, featureKeys, normalizeValues) {
+      const matrix = customers.map((customer) => featureKeys.map((key) => customer[key]));
+      if (!matrix.length) {
+        return {
+          raw: [],
+          normalized: [],
+          means: [],
+          stds: []
+        };
+      }
+      if (!normalizeValues) {
+        return {
+          raw: matrix,
+          normalized: matrix.map((row) => row.slice()),
+          means: [],
+          stds: []
+        };
+      }
+      const scaled = standardizeMatrix(matrix);
+      return {
+        raw: matrix,
+        normalized: scaled.normalized,
+        means: scaled.means,
+        stds: scaled.stds
+      };
+    }
+
+    function distanceSquared(a, b) {
+      let sum = 0;
+      for (let index = 0; index < a.length; index += 1) {
+        const diff = a[index] - b[index];
+        sum += diff * diff;
+      }
+      return sum;
+    }
+
+    function distance(a, b) {
+      return Math.sqrt(distanceSquared(a, b));
+    }
+
+    function chooseInitialIndices(points, k, seed) {
+      const rng = seededRandom(seed);
+      const indices = [];
+      indices.push(Math.floor(rng() * points.length));
+
+      while (indices.length < k) {
+        const distances = points.map((point, index) => {
+          if (indices.includes(index)) return 0;
+          let best = Infinity;
+          for (const chosen of indices) {
+            best = Math.min(best, distanceSquared(point, points[chosen]));
+          }
+          return best;
+        });
+
+        const total = distances.reduce((sum, value) => sum + value, 0);
+        if (!total) {
+          for (let index = 0; index < points.length && indices.length < k; index += 1) {
+            if (!indices.includes(index)) indices.push(index);
+          }
+          break;
+        }
+
+        const target = rng() * total;
+        let running = 0;
+        for (let index = 0; index < distances.length; index += 1) {
+          running += distances[index];
+          if (running >= target) {
+            indices.push(index);
+            break;
+          }
+        }
+      }
+      return indices.slice(0, k);
+    }
+
+    function assignToCenters(matrix, centers) {
+      const labels = new Array(matrix.length).fill(0);
+      const distances = new Array(matrix.length).fill(0);
+      let totalSquared = 0;
+
+      matrix.forEach((point, rowIndex) => {
+        let bestCluster = 0;
+        let bestDistanceSquared = Infinity;
+        centers.forEach((center, clusterIndex) => {
+          const candidate = distanceSquared(point, center);
+          if (candidate < bestDistanceSquared) {
+            bestDistanceSquared = candidate;
+            bestCluster = clusterIndex;
+          }
+        });
+        labels[rowIndex] = bestCluster;
+        distances[rowIndex] = Math.sqrt(bestDistanceSquared);
+        totalSquared += bestDistanceSquared;
+      });
+
+      return {
+        labels,
+        distances,
+        totalSquared,
+        avgDistance: distances.reduce((sum, value) => sum + value, 0) / Math.max(distances.length, 1)
+      };
+    }
+
+    function recomputeCentroids(matrix, labels, k, previousCenters) {
+      const dimensions = matrix[0].length;
+      const sums = Array.from({ length: k }, () => new Array(dimensions).fill(0));
+      const counts = new Array(k).fill(0);
+
+      matrix.forEach((point, index) => {
+        const cluster = labels[index];
+        counts[cluster] += 1;
+        point.forEach((value, dimension) => {
+          sums[cluster][dimension] += value;
+        });
+      });
+
+      return sums.map((values, clusterIndex) => {
+        if (!counts[clusterIndex]) {
+          return previousCenters[clusterIndex].slice();
+        }
+        return values.map((value) => value / counts[clusterIndex]);
+      });
+    }
+
+    function runKMeans(matrix, k, seed = 11) {
+      const initialIndices = chooseInitialIndices(matrix, k, seed);
+      let centroids = initialIndices.map((index) => matrix[index].slice());
+      let labels = [];
+      let assignment = null;
+      let iterations = 0;
+
+      for (let iteration = 0; iteration < 80; iteration += 1) {
+        iterations = iteration + 1;
+        assignment = assignToCenters(matrix, centroids);
+        const changed = assignment.labels.some((label, index) => label !== labels[index]);
+        labels = assignment.labels.slice();
+        const nextCentroids = recomputeCentroids(matrix, labels, k, centroids);
+        const centroidsStable = nextCentroids.every((center, index) => distanceSquared(center, centroids[index]) < 1e-9);
+        centroids = nextCentroids;
+        if (!changed || centroidsStable) break;
+      }
+
+      assignment = assignToCenters(matrix, centroids);
+      return {
+        labels: assignment.labels,
+        centroids,
+        sse: assignment.totalSquared,
+        avgDistance: assignment.avgDistance,
+        iterations
+      };
+    }
+
+    function assignToMedoids(matrix, medoidVectors) {
+      return assignToCenters(matrix, medoidVectors);
+    }
+
+    function runKMedoids(matrix, k, seed = 29) {
+      const initialIndices = chooseInitialIndices(matrix, k, seed);
+      let medoidIndices = initialIndices.slice();
+      let iterations = 0;
+
+      for (let iteration = 0; iteration < 40; iteration += 1) {
+        iterations = iteration + 1;
+        const medoidVectors = medoidIndices.map((index) => matrix[index]);
+        const assignment = assignToMedoids(matrix, medoidVectors);
+        let changed = false;
+
+        for (let cluster = 0; cluster < k; cluster += 1) {
+          const members = assignment.labels
+            .map((label, index) => label === cluster ? index : -1)
+            .filter((index) => index !== -1);
+
+          if (!members.length) continue;
+
+          let bestMedoid = medoidIndices[cluster];
+          let bestCost = Infinity;
+          for (const candidate of members) {
+            let totalCost = 0;
+            for (const other of members) {
+              totalCost += distance(matrix[candidate], matrix[other]);
+            }
+            if (totalCost < bestCost) {
+              bestCost = totalCost;
+              bestMedoid = candidate;
+            }
+          }
+
+          if (bestMedoid !== medoidIndices[cluster]) {
+            medoidIndices[cluster] = bestMedoid;
+            changed = true;
+          }
+        }
+
+        if (!changed) break;
+      }
+
+      const medoids = medoidIndices.map((index) => matrix[index]);
+      const assignment = assignToMedoids(matrix, medoids);
+      const totalDistance = assignment.distances.reduce((sum, value) => sum + value, 0);
+      return {
+        labels: assignment.labels,
+        medoidIndices,
+        medoids,
+        totalDistance,
+        avgDistance: assignment.avgDistance,
+        iterations
+      };
+    }
+
+    function sampleIndices(length, limit = SAMPLE_LIMIT) {
+      if (length <= limit) {
+        return Array.from({ length }, (_, index) => index);
+      }
+      const rng = seededRandom(length * 41 + limit);
+      const indices = Array.from({ length }, (_, index) => index);
+      for (let i = indices.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(rng() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      return indices.slice(0, limit).sort((a, b) => a - b);
+    }
+
+    function computeSilhouette(matrix, labels) {
+      const n = matrix.length;
+      if (n < 3) return 0;
+      const clusters = {};
+      labels.forEach((label, index) => {
+        if (!clusters[label]) clusters[label] = [];
+        clusters[label].push(index);
+      });
+      if (Object.keys(clusters).length < 2) return 0;
+
+      const distances = Array.from({ length: n }, () => new Array(n).fill(0));
+      for (let i = 0; i < n; i += 1) {
+        for (let j = i + 1; j < n; j += 1) {
+          const d = distance(matrix[i], matrix[j]);
+          distances[i][j] = d;
+          distances[j][i] = d;
+        }
+      }
+
+      const silhouettes = matrix.map((_, index) => {
+        const ownCluster = labels[index];
+        const ownMembers = clusters[ownCluster];
+        const a = ownMembers.length <= 1
+          ? 0
+          : ownMembers
+              .filter((other) => other !== index)
+              .reduce((sum, other) => sum + distances[index][other], 0) / (ownMembers.length - 1);
+
+        let b = Infinity;
+        Object.entries(clusters).forEach(([clusterLabel, members]) => {
+          if (Number(clusterLabel) === ownCluster || !members.length) return;
+          const avg = members.reduce((sum, other) => sum + distances[index][other], 0) / members.length;
+          if (avg < b) b = avg;
+        });
+
+        if (!Number.isFinite(b) && !a) return 0;
+        return (b - a) / Math.max(a, b, 1e-9);
+      });
+
+      return silhouettes.reduce((sum, value) => sum + value, 0) / silhouettes.length;
+    }
+
+    function computePairAgreement(labelsA, labelsB) {
+      const n = Math.min(labelsA.length, labelsB.length);
+      if (n < 2) return 1;
+      let agree = 0;
+      let total = 0;
+      for (let i = 0; i < n; i += 1) {
+        for (let j = i + 1; j < n; j += 1) {
+          const sameA = labelsA[i] === labelsA[j];
+          const sameB = labelsB[i] === labelsB[j];
+          if (sameA === sameB) agree += 1;
+          total += 1;
+        }
+      }
+      return agree / total;
+    }
+
+    function clusterAverages(customers, labels, k) {
+      const clusters = Array.from({ length: k }, () => ({
+        count: 0,
+        age: 0,
+        income: 0,
+        spending: 0,
+        femaleCount: 0,
+        maleCount: 0
+      }));
+
+      customers.forEach((customer, index) => {
+        const cluster = labels[index];
+        const bucket = clusters[cluster];
+        bucket.count += 1;
+        bucket.age += customer.age;
+        bucket.income += customer.income;
+        bucket.spending += customer.spending;
+        if (String(customer.gender).toLowerCase().startsWith("f")) bucket.femaleCount += 1;
+        if (String(customer.gender).toLowerCase().startsWith("m")) bucket.maleCount += 1;
+      });
+
+      return clusters.map((cluster, index) => ({
+        cluster: index,
+        count: cluster.count,
+        age: cluster.count ? cluster.age / cluster.count : 0,
+        income: cluster.count ? cluster.income / cluster.count : 0,
+        spending: cluster.count ? cluster.spending / cluster.count : 0,
+        femaleShare: cluster.count ? cluster.femaleCount / cluster.count : 0,
+        maleShare: cluster.count ? cluster.maleCount / cluster.count : 0
+      }));
+    }
+
+    function quantile(values, q) {
+      if (!values.length) return 0;
+      const sorted = values.slice().sort((a, b) => a - b);
+      const position = (sorted.length - 1) * q;
+      const base = Math.floor(position);
+      const rest = position - base;
+      if (sorted[base + 1] !== undefined) {
+        return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+      }
+      return sorted[base];
+    }
+
+    function describeBand(value, low, high, lowLabel, midLabel, highLabel) {
+      if (value <= low) return lowLabel;
+      if (value >= high) return highLabel;
+      return midLabel;
+    }
+
+    function personaName(summary, globalStats) {
+      const ageBand = describeBand(summary.age, globalStats.ageLow, globalStats.ageHigh, "Young", "Balanced-age", "Mature");
+      const incomeBand = describeBand(summary.income, globalStats.incomeLow, globalStats.incomeHigh, "Budget", "Comfort", "Premium");
+      const spendingBand = describeBand(summary.spending, globalStats.spendingLow, globalStats.spendingHigh, "Careful", "Steady", "High-spend");
+      return `${ageBand} ${incomeBand} ${spendingBand}`;
+    }
+
+    function buildPersonaSentence(summary, globalStats) {
+      const ageTone = describeBand(summary.age, globalStats.ageLow, globalStats.ageHigh, "younger", "mixed-age", "older");
+      const incomeTone = describeBand(summary.income, globalStats.incomeLow, globalStats.incomeHigh, "lower-income", "mid-income", "high-income");
+      const spendingTone = describeBand(summary.spending, globalStats.spendingLow, globalStats.spendingHigh, "careful spenders", "steady spenders", "high spenders");
+      const genderNote =
+        summary.femaleShare > 0.62 ? "with a stronger female presence" :
+        summary.maleShare > 0.62 ? "with a stronger male presence" :
+        "with a fairly balanced gender mix";
+      return `This segment groups ${ageTone}, ${incomeTone} customers who behave like ${spendingTone}, ${genderNote}.`;
+    }
+
+    function buildGlobalStats(customers) {
+      return {
+        ageLow: quantile(customers.map((customer) => customer.age), 0.33),
+        ageHigh: quantile(customers.map((customer) => customer.age), 0.66),
+        incomeLow: quantile(customers.map((customer) => customer.income), 0.33),
+        incomeHigh: quantile(customers.map((customer) => customer.income), 0.66),
+        spendingLow: quantile(customers.map((customer) => customer.spending), 0.33),
+        spendingHigh: quantile(customers.map((customer) => customer.spending), 0.66)
+      };
+    }
+
+    function buildHeatmapRows(clusterSummary) {
+      return clusterSummary.map((cluster) => [cluster.age, cluster.income, cluster.spending]);
+    }
+
+    function normalizeProfileRows(rows) {
+      const columns = rows[0].length;
+      const mins = new Array(columns).fill(Infinity);
+      const maxs = new Array(columns).fill(-Infinity);
+      rows.forEach((row) => {
+        row.forEach((value, index) => {
+          mins[index] = Math.min(mins[index], value);
+          maxs[index] = Math.max(maxs[index], value);
+        });
+      });
+      return rows.map((row) => row.map((value, index) => {
+        const range = maxs[index] - mins[index];
+        return range ? (value - mins[index]) / range : 0.5;
+      }));
+    }
+
+    function renderScatterChart(targetId, customers, labels, centers, centerLabel, title) {
+      const traces = [];
+      const uniqueClusters = [...new Set(labels)].sort((a, b) => a - b);
+      uniqueClusters.forEach((cluster) => {
+        const points = customers.filter((_, index) => labels[index] === cluster);
+        traces.push({
+          type: "scatter",
+          mode: "markers",
+          name: `Cluster ${cluster + 1}`,
+          x: points.map((customer) => customer.income),
+          y: points.map((customer) => customer.spending),
+          text: points.map((customer) =>
+            `ID: ${customer.customerId}<br>Age: ${customer.age}<br>Income: ${customer.income}<br>Spending: ${customer.spending}<br>Gender: ${customer.gender || "N/A"}`
+          ),
+          marker: {
+            size: points.map((customer) => Math.max(10, customer.age * 0.5)),
+            color: COLORS[cluster % COLORS.length],
+            line: { color: "rgba(255,255,255,0.9)", width: 1.1 },
+            opacity: 0.82
+          },
+          hovertemplate: "Income: %{x}<br>Spending: %{y}<br>%{text}<extra></extra>"
+        });
+      });
+
+      const centerX = centers.map((center) => center.income);
+      const centerY = centers.map((center) => center.spending);
+      traces.push({
+        type: "scatter",
+        mode: "markers+text",
+        name: centerLabel,
+        x: centerX,
+        y: centerY,
+        text: centers.map((_, index) => `${centerLabel} ${index + 1}`),
+        textposition: "top center",
+        marker: {
+          size: 18,
+          symbol: centerLabel === "Medoid" ? "star-diamond" : "diamond",
+          color: "#fff8f0",
+          line: { color: "#0f2f3c", width: 2 }
+        },
+        hovertemplate: `${centerLabel}: %{text}<extra></extra>`
+      });
+
+      Plotly.newPlot(targetId, traces, {
+        title: { text: title, font: { family: "Manrope, sans-serif", size: 16, color: "#0f2f3c" } },
+        margin: { t: 48, r: 18, b: 54, l: 56 },
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(255,255,255,0.25)",
+        xaxis: { title: "Annual Income (k$)", gridcolor: "rgba(15, 47, 60, 0.08)" },
+        yaxis: { title: "Spending Score (1-100)", gridcolor: "rgba(15, 47, 60, 0.08)" },
+        legend: { orientation: "h", y: -0.2 }
+      }, state.plotlyConfig);
+    }
+
+    function renderElbowChart(elbowResults, selectedK) {
+      Plotly.newPlot("elbowChart", [{
+        type: "scatter",
+        mode: "lines+markers",
+        x: elbowResults.map((item) => item.k),
+        y: elbowResults.map((item) => item.sse),
+        line: { color: "#10384a", width: 3 },
+        marker: {
+          size: elbowResults.map((item) => item.k === selectedK ? 14 : 9),
+          color: elbowResults.map((item) => item.k === selectedK ? "#d56449" : "#e8a64a")
+        },
+        hovertemplate: "K=%{x}<br>WCSS=%{y:.3f}<extra></extra>"
+      }], {
+        margin: { t: 16, r: 14, b: 50, l: 56 },
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(255,255,255,0.25)",
+        xaxis: { title: "Number of clusters (k)", dtick: 1 },
+        yaxis: { title: "Within-cluster sum of squares" }
+      }, state.plotlyConfig);
+    }
+
+    function renderComparisonChart(metrics) {
+      const categories = ["Silhouette", "Compactness", "Agreement"];
+      Plotly.newPlot("comparisonChart", [
+        {
+          type: "bar",
+          name: "k-Means",
+          x: categories,
+          y: [metrics.kmeansSilhouette, 1 / (1 + metrics.kmeansCompactness), metrics.agreement],
+          marker: { color: "#10384a" }
+        },
+        {
+          type: "bar",
+          name: "k-Medoids",
+          x: categories,
+          y: [metrics.kmedoidsSilhouette, 1 / (1 + metrics.kmedoidsCompactness), metrics.agreement],
+          marker: { color: "#d56449" }
+        }
+      ], {
+        barmode: "group",
+        margin: { t: 16, r: 10, b: 50, l: 54 },
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(255,255,255,0.25)",
+        yaxis: { title: "Normalized comparison score", range: [0, 1] }
+      }, state.plotlyConfig);
+    }
+
+    function renderHeatmap(targetId, clusterSummary, title) {
+      const heatmapRaw = buildHeatmapRows(clusterSummary);
+      const normalizedRows = normalizeProfileRows(heatmapRaw);
+      Plotly.newPlot(targetId, [{
+        type: "heatmap",
+        z: normalizedRows,
+        x: ["Age", "Annual Income", "Spending Score"],
+        y: clusterSummary.map((cluster) => `Cluster ${cluster.cluster + 1}`),
+        colorscale: [[0, "#d7f1ed"], [0.5, "#e8a64a"], [1, "#d56449"]],
+        hovertemplate: "%{y}<br>%{x}: %{z:.2f}<extra></extra>"
+      }], {
+        title: { text: title, font: { size: 15 } },
+        margin: { t: 46, r: 12, b: 42, l: 92 },
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(255,255,255,0.25)"
+      }, state.plotlyConfig);
+    }
+
+    function renderPersonaCards(targetId, clusterSummary, globalStats, labelPrefix) {
+      const container = document.getElementById(targetId);
+      container.innerHTML = clusterSummary.map((cluster) => {
+        const name = personaName(cluster, globalStats);
+        return `
+          <article class="persona-card">
+            <div class="tag ${cluster.spending >= globalStats.spendingHigh ? "good" : cluster.spending <= globalStats.spendingLow ? "warn" : "alt"}">${labelPrefix} ${cluster.cluster + 1}</div>
+            <h4>${escapeHtml(name)}</h4>
+            <p>${escapeHtml(buildPersonaSentence(cluster, globalStats))}</p>
+            <p style="margin-top: 10px;" class="micro-copy">
+              Avg Age: <strong>${formatNumber(cluster.age, 1)}</strong> |
+              Avg Income: <strong>${formatNumber(cluster.income, 1)}</strong> |
+              Avg Spending: <strong>${formatNumber(cluster.spending, 1)}</strong> |
+              Rows: <strong>${formatNumber(cluster.count)}</strong>
+            </p>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function findElbowK(elbowResults) {
+      if (elbowResults.length < 3) return elbowResults[0]?.k || 2;
+      let best = elbowResults[0].k;
+      let strongest = -Infinity;
+      for (let index = 1; index < elbowResults.length - 1; index += 1) {
+        const prev = elbowResults[index - 1];
+        const current = elbowResults[index];
+        const next = elbowResults[index + 1];
+        const bend = (prev.sse - current.sse) - (current.sse - next.sse);
+        if (bend > strongest) {
+          strongest = bend;
+          best = current.k;
+        }
+      }
+      return best;
+    }
+
+    function winnerFromMetrics(kmeansSilhouette, kmedoidsSilhouette, kmeansCompactness, kmedoidsCompactness) {
+      const silhouetteGap = kmeansSilhouette - kmedoidsSilhouette;
+      if (Math.abs(silhouetteGap) > 0.02) {
+        return silhouetteGap > 0 ? "k-Means" : "k-Medoids";
+      }
+      if (Math.abs(kmeansCompactness - kmedoidsCompactness) > 0.03) {
+        return kmeansCompactness < kmedoidsCompactness ? "k-Means" : "k-Medoids";
+      }
+      return "Close call";
+    }
+
+    function buildSummaryText(result) {
+      const featureNames = result.featureKeys.map((key) => ({
+        age: "Age",
+        income: "Annual Income",
+        spending: "Spending Score"
+      }[key]));
+      const best = result.winner;
+      const strongLine =
+        best === "Close call"
+          ? "Both algorithms are separating the customer groups at a very similar quality level."
+          : `${best} produced the cleaner segmentation on this run.`;
+
+      return `${strongLine} The comparison used ${featureNames.join(", ")} with K=${result.k}. ` +
+        `k-Means silhouette is ${formatDecimal(result.kmeansSilhouette)}, while k-Medoids silhouette is ${formatDecimal(result.kmedoidsSilhouette)}. ` +
+        `Pairwise agreement between both segmentations is ${formatPercent(result.agreement, 1)}, which shows how similarly they view the customer base.`;
+    }
+
+    function buildBusinessTakeaway(result) {
+      if (result.winner === "k-Medoids") {
+        return "Use k-Medoids when you want more robust, real-customer-centered segments for presentation and business profiling.";
+      }
+      if (result.winner === "k-Means") {
+        return "Use k-Means when you want fast, compact groups and the dataset looks relatively clean and well-behaved.";
+      }
+      return "Both methods are telling a similar customer story, so you can justify either one based on speed versus robustness.";
+    }
+
+    function buildCentersForPlot(clusterSummary) {
+      return clusterSummary.map((cluster) => ({
+        income: cluster.income,
+        spending: cluster.spending
+      }));
+    }
+
+    function setStatus(targetId, message, mode = "") {
+      const element = document.getElementById(targetId);
+      element.className = `status-box${mode ? ` ${mode}` : ""}`;
+      element.textContent = message;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderDatasetPreview(customers) {
+      const tbody = document.querySelector("#datasetPreviewTable tbody");
+      tbody.innerHTML = customers.slice(0, 12).map((customer) => `
+        <tr>
+          <td>${escapeHtml(customer.customerId)}</td>
+          <td>${escapeHtml(customer.gender || "-")}</td>
+          <td>${formatNumber(customer.age, 0)}</td>
+          <td>${formatNumber(customer.income, 0)}</td>
+          <td>${formatNumber(customer.spending, 0)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderResultsPreview(result) {
+      const tbody = document.querySelector("#resultsPreviewTable tbody");
+      if (!result) {
+        tbody.innerHTML = "";
+        return;
+      }
+      tbody.innerHTML = state.customers.slice(0, 12).map((customer, index) => `
+        <tr>
+          <td>${escapeHtml(customer.customerId)}</td>
+          <td>${formatNumber(customer.age, 0)}</td>
+          <td>${formatNumber(customer.income, 0)}</td>
+          <td>${formatNumber(customer.spending, 0)}</td>
+          <td>Cluster ${result.kmeansLabels[index] + 1}</td>
+          <td>Cluster ${result.kmedoidsLabels[index] + 1}</td>
+        </tr>
+      `).join("");
+    }
+
+    function refreshTopMetrics(result) {
+      document.getElementById("metricCustomers").textContent = formatNumber(state.customers.length);
+      document.getElementById("metricFeatures").textContent = formatNumber(result ? result.featureKeys.length : activeFeatureKeys().length);
+      document.getElementById("metricKMeansSilhouette").textContent = result ? formatDecimal(result.kmeansSilhouette) : "-";
+      document.getElementById("metricKMedoidsSilhouette").textContent = result ? formatDecimal(result.kmedoidsSilhouette) : "-";
+      document.getElementById("metricAgreement").textContent = result ? formatPercent(result.agreement, 1) : "-";
+      document.getElementById("metricWinner").textContent = result ? result.winner : "-";
+      document.getElementById("metricWinnerNote").textContent = result
+        ? `${result.winner} is currently the stronger story for this dataset.`
+        : "Run the comparison to see which model segments your data more cleanly.";
+    }
+
+    function clearAnalysisState(message = "Run clustering to generate charts, profiles, and comparison metrics.") {
+      state.latestAnalysis = null;
+      refreshTopMetrics(null);
+      renderResultsPreview(null);
+      renderPlaceholderCharts();
+      document.getElementById("analysisSampleTag").textContent = "Awaiting analysis";
+      document.getElementById("kmeansCompactness").textContent = "-";
+      document.getElementById("kmedoidsCompactness").textContent = "-";
+      document.getElementById("elbowHint").textContent = "-";
+      document.getElementById("analysisRowsUsed").textContent = "-";
+      document.getElementById("winnerTag").textContent = "Awaiting analysis";
+      document.getElementById("summaryInsight").textContent = "Run the comparison to generate a presentation-ready summary for the currently loaded dataset.";
+      document.getElementById("kmeansCenterSummary").textContent = "-";
+      document.getElementById("kmedoidsCenterSummary").textContent = "-";
+      document.getElementById("businessTakeaway").textContent = "-";
+      document.getElementById("kmeansPersonas").innerHTML = "";
+      document.getElementById("kmedoidsPersonas").innerHTML = "";
+      setStatus("analysisStatus", message, "");
+    }
+
+    function refreshHero() {
+      document.getElementById("heroDatasetName").textContent = state.datasetLabel;
+      document.getElementById("heroDatasetRows").textContent = formatNumber(state.customers.length);
+      document.getElementById("heroKValue").textContent = document.getElementById("clusterCount").value;
+      document.getElementById("clusterCountValue").textContent = document.getElementById("clusterCount").value;
+      document.getElementById("normalizationTag").textContent = document.getElementById("normalizeToggle").checked
+        ? "Normalized features"
+        : "Raw features";
+    }
+
+    function updateMappingFromDom() {
+      state.mapping = {
+        id: document.getElementById("mapId").value,
+        gender: document.getElementById("mapGender").value,
+        age: document.getElementById("mapAge").value,
+        income: document.getElementById("mapIncome").value,
+        spending: document.getElementById("mapSpending").value
+      };
+    }
+
+    function applyCurrentMapping(runImmediately = false) {
+      updateMappingFromDom();
+      const required = ["age", "income", "spending"];
+      if (required.some((key) => !state.mapping[key])) {
+        setStatus("uploadStatus", "Age, Income, and Spending mappings are required before the dataset can be used.", "danger");
+        return;
+      }
+
+      state.customers = buildCustomersFromMapping(state.rawRows, state.mapping);
+      if (state.customers.length < 8) {
+        setStatus("uploadStatus", "The mapped dataset has too few valid numeric rows. Check the selected columns and CSV values.", "danger");
+        return;
+      }
+
+      state.datasetLabel = document.getElementById("datasetLabel").value.trim() || "Uploaded dataset";
+      renderDatasetPreview(state.customers);
+      refreshHero();
+      clearAnalysisState("Dataset mapped successfully. Run clustering to analyze this dataset.");
+      setStatus(
+        "datasetStatus",
+        `Loaded ${formatNumber(state.customers.length)} valid customer rows from ${state.datasetLabel}. The app is ready to compare k-Means and k-Medoids.`,
+        "success"
+      );
+      setStatus(
+        "uploadStatus",
+        `Mapping applied successfully. ${formatNumber(state.customers.length)} rows are ready for clustering.`,
+        "success"
+      );
+
+      if (runImmediately) {
+        runAnalysis();
+      }
+    }
+
+    function generateElbowResults(matrix) {
+      const results = [];
+      for (let k = 2; k <= 8; k += 1) {
+        results.push({
+          k,
+          sse: runKMeans(matrix, k, 100 + k).sse
+        });
+      }
+      return results;
+    }
+
+    function runAnalysis() {
+      if (!state.customers.length) {
+        setStatus("analysisStatus", "No mapped customer dataset is available yet. Load the default dataset or apply a CSV mapping first.", "danger");
+        return;
+      }
+
+      const featureKeys = activeFeatureKeys();
+      if (featureKeys.length < 2) {
+        setStatus("analysisStatus", "Choose at least two features before running clustering.", "danger");
+        return;
+      }
+
+      const k = Number(document.getElementById("clusterCount").value);
+      const normalizeValues = document.getElementById("normalizeToggle").checked;
+
+      refreshHero();
+      setStatus("analysisStatus", "Running k-Means, k-Medoids, elbow analysis, and silhouette scoring...", "");
+
+      window.requestAnimationFrame(() => {
+        const featureSet = getFeatureMatrix(state.customers, featureKeys, normalizeValues);
+        const normalizedMatrix = featureSet.normalized;
+        const sampleSet = sampleIndices(normalizedMatrix.length, SAMPLE_LIMIT);
+        const sampleMatrix = sampleSet.map((index) => normalizedMatrix[index]);
+        const sampleCustomers = sampleSet.map((index) => state.customers[index]);
+
+        const kmeansSample = runKMeans(sampleMatrix, k, 37 + k);
+        const kmedoidsSample = runKMedoids(sampleMatrix, k, 71 + k);
+        const elbowResults = generateElbowResults(sampleMatrix);
+
+        const fullKMeansAssignment = assignToCenters(normalizedMatrix, kmeansSample.centroids);
+        const fullKMedoidsAssignment = assignToCenters(normalizedMatrix, kmedoidsSample.medoids);
+        const kmeansClusterSummary = clusterAverages(state.customers, fullKMeansAssignment.labels, k);
+        const kmedoidsClusterSummary = clusterAverages(state.customers, fullKMedoidsAssignment.labels, k);
+        const globalStats = buildGlobalStats(state.customers);
+        const kmeansSilhouette = computeSilhouette(sampleMatrix, kmeansSample.labels);
+        const kmedoidsSilhouette = computeSilhouette(sampleMatrix, kmedoidsSample.labels);
+        const agreement = computePairAgreement(fullKMeansAssignment.labels, fullKMedoidsAssignment.labels);
+        const elbowHint = findElbowK(elbowResults);
+        const winner = winnerFromMetrics(
+          kmeansSilhouette,
+          kmedoidsSilhouette,
+          fullKMeansAssignment.avgDistance,
+          fullKMedoidsAssignment.avgDistance
+        );
+
+        const result = {
+          datasetLabel: state.datasetLabel,
+          featureKeys,
+          k,
+          normalizeValues,
+          kmeansLabels: fullKMeansAssignment.labels,
+          kmedoidsLabels: fullKMedoidsAssignment.labels,
+          kmeansCenters: buildCentersForPlot(kmeansClusterSummary),
+          kmedoidsCenters: buildCentersForPlot(kmedoidsClusterSummary),
+          kmeansSummary: kmeansClusterSummary,
+          kmedoidsSummary: kmedoidsClusterSummary,
+          kmeansSilhouette,
+          kmedoidsSilhouette,
+          kmeansCompactness: fullKMeansAssignment.avgDistance,
+          kmedoidsCompactness: fullKMedoidsAssignment.avgDistance,
+          agreement,
+          elbowHint,
+          elbowResults,
+          winner,
+          sampleSize: sampleMatrix.length,
+          fullSize: normalizedMatrix.length,
+          globalStats
+        };
+
+        state.latestAnalysis = result;
+        refreshTopMetrics(result);
+
+        document.getElementById("kmeansCompactness").textContent = formatDecimal(result.kmeansCompactness);
+        document.getElementById("kmedoidsCompactness").textContent = formatDecimal(result.kmedoidsCompactness);
+        document.getElementById("elbowHint").textContent = `K = ${result.elbowHint}`;
+        document.getElementById("analysisRowsUsed").textContent = `${formatNumber(result.sampleSize)} / ${formatNumber(result.fullSize)}`;
+        document.getElementById("analysisSampleTag").textContent = result.sampleSize === result.fullSize
+          ? "Using full dataset"
+          : `Optimized on ${formatNumber(result.sampleSize)} sampled rows`;
+        document.getElementById("winnerTag").textContent = result.winner;
+        document.getElementById("summaryInsight").textContent = buildSummaryText(result);
+        document.getElementById("kmeansCenterSummary").textContent = `${formatNumber(result.kmeansSummary.length)} centroids across ${featureKeys.length} dimensions`;
+        document.getElementById("kmedoidsCenterSummary").textContent = `${formatNumber(result.kmedoidsSummary.length)} representative customers selected`;
+        document.getElementById("businessTakeaway").textContent = buildBusinessTakeaway(result);
+
+        renderScatterChart(
+          "kmeansScatter",
+          state.customers,
+          result.kmeansLabels,
+          result.kmeansCenters,
+          "Centroid",
+          "Customer clusters from k-Means"
+        );
+        renderScatterChart(
+          "kmedoidsScatter",
+          state.customers,
+          result.kmedoidsLabels,
+          result.kmedoidsCenters,
+          "Medoid",
+          "Customer clusters from k-Medoids"
+        );
+        renderElbowChart(result.elbowResults, result.k);
+        renderComparisonChart(result);
+        renderHeatmap("kmeansProfileHeatmap", result.kmeansSummary, "Normalized average profile");
+        renderHeatmap("kmedoidsProfileHeatmap", result.kmedoidsSummary, "Normalized average profile");
+        renderPersonaCards("kmeansPersonas", result.kmeansSummary, result.globalStats, "Cluster");
+        renderPersonaCards("kmedoidsPersonas", result.kmedoidsSummary, result.globalStats, "Cluster");
+        renderResultsPreview(result);
+
+        setStatus(
+          "analysisStatus",
+          `Comparison complete. ${result.winner} is the stronger segmentation on ${state.datasetLabel}, with agreement at ${formatPercent(result.agreement, 1)}.`,
+          "success"
+        );
+      });
+    }
+
+    function serializeAnalysis(result) {
+      if (!result) return null;
+      return {
+        datasetLabel: result.datasetLabel,
+        rows: state.customers.length,
+        k: result.k,
+        featureKeys: result.featureKeys,
+        normalized: result.normalizeValues,
+        kmeansSilhouette: Number(result.kmeansSilhouette.toFixed(4)),
+        kmedoidsSilhouette: Number(result.kmedoidsSilhouette.toFixed(4)),
+        kmeansCompactness: Number(result.kmeansCompactness.toFixed(4)),
+        kmedoidsCompactness: Number(result.kmedoidsCompactness.toFixed(4)),
+        agreement: Number(result.agreement.toFixed(4)),
+        elbowHint: result.elbowHint,
+        winner: result.winner,
+        createdAt: new Date().toISOString()
+      };
+    }
+
+    async function saveRun() {
+      if (!state.latestAnalysis) {
+        setStatus("analysisStatus", "Run clustering first so there is an analysis snapshot to save.", "warn");
+        return;
+      }
+
+      const snapshot = serializeAnalysis(state.latestAnalysis);
+      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+      history.unshift(snapshot);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+      renderHistory();
+
+      if (!state.firestore) {
+        setStatus("analysisStatus", "Run saved locally. Firestore is not active, so browser history is being used.", "success");
+        return;
+      }
+
+      try {
+        await state.firestore.collection("clustering_runs").add({
+          ...snapshot,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        setStatus("analysisStatus", "Run saved locally and mirrored to Firestore.", "success");
+      } catch (error) {
+        if (!state.savingDisabledNoticeShown) {
+          setStatus(
+            "storageStatus",
+            `Firestore is connected, but writes are blocked by your current rules. Local run history is still working. (${error.message})`,
+            "warn"
+          );
+          state.savingDisabledNoticeShown = true;
+        }
+        setStatus("analysisStatus", "Run saved locally. Firestore write permission is currently blocked.", "success");
+      }
+    }
+
+    function renderHistory() {
+      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+      const list = document.getElementById("historyList");
+      list.innerHTML = history.length
+        ? history.map((entry) => `
+            <article class="history-card">
+              <span>${new Date(entry.createdAt).toLocaleString()}</span>
+              <strong>${escapeHtml(entry.datasetLabel)}</strong>
+              <small>K=${entry.k} | Winner: ${escapeHtml(entry.winner)} | k-Means silhouette ${formatDecimal(entry.kmeansSilhouette)} | k-Medoids silhouette ${formatDecimal(entry.kmedoidsSilhouette)}</small>
+            </article>
+          `).join("")
+        : `<article class="history-card"><strong>No saved runs yet</strong><small>Use "Save this run" after clustering to build a recent-history trail.</small></article>`;
+    }
+
+    async function downloadResults() {
+      if (!state.latestAnalysis) {
+        setStatus("analysisStatus", "Run clustering first so the export includes both algorithm labels.", "warn");
+        return;
+      }
+
+      const result = state.latestAnalysis;
+      const kmeansNames = result.kmeansSummary.map((summary) => personaName(summary, result.globalStats));
+      const kmedoidsNames = result.kmedoidsSummary.map((summary) => personaName(summary, result.globalStats));
+      const headers = [
+        "CustomerID",
+        "Gender",
+        "Age",
+        "Annual Income (k$)",
+        "Spending Score (1-100)",
+        "KMeansCluster",
+        "KMeansPersona",
+        "KMedoidsCluster",
+        "KMedoidsPersona"
+      ];
+
+      const lines = [
+        headers.join(","),
+        ...state.customers.map((customer, index) => [
+          `"${String(customer.customerId).replace(/"/g, '""')}"`,
+          `"${String(customer.gender || "").replace(/"/g, '""')}"`,
+          customer.age,
+          customer.income,
+          customer.spending,
+          result.kmeansLabels[index] + 1,
+          `"${kmeansNames[result.kmeansLabels[index]].replace(/"/g, '""')}"`,
+          result.kmedoidsLabels[index] + 1,
+          `"${kmedoidsNames[result.kmedoidsLabels[index]].replace(/"/g, '""')}"`
+        ].join(","))
+      ];
+
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${state.datasetLabel.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_.-]/g, "") || "clustered_customers"}_clustered.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderPlaceholderCharts() {
+      const emptyLayout = {
+        margin: { t: 20, r: 10, b: 40, l: 46 },
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(255,255,255,0.25)",
+        annotations: [{
+          text: "Run clustering to render this chart",
+          x: 0.5,
+          y: 0.5,
+          xref: "paper",
+          yref: "paper",
+          showarrow: false,
+          font: { size: 16, color: "#5f7380" }
+        }],
+        xaxis: { visible: false },
+        yaxis: { visible: false }
+      };
+      [
+        "kmeansScatter",
+        "kmedoidsScatter",
+        "elbowChart",
+        "comparisonChart",
+        "kmeansProfileHeatmap",
+        "kmedoidsProfileHeatmap"
+      ].forEach((targetId) => Plotly.newPlot(targetId, [], emptyLayout, state.plotlyConfig));
+    }
+
+    function initFirebase() {
+      try {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        state.firestore = firebase.firestore();
+        state.historyMode = "Firestore ready";
+        document.getElementById("heroStorageMode").textContent = "Firestore ready";
+        document.getElementById("historyModeTag").textContent = "Firestore ready";
+        setStatus(
+          "storageStatus",
+          "Firebase client initialized successfully. Saved runs will try Firestore first and fall back to local history if rules reject the write.",
+          "success"
+        );
+      } catch (error) {
+        state.firestore = null;
+        state.historyMode = "Local history";
+        document.getElementById("heroStorageMode").textContent = "Local history";
+        document.getElementById("historyModeTag").textContent = "Local history";
+        setStatus(
+          "storageStatus",
+          `Firebase could not initialize, so the app is running with browser-only history. (${error.message})`,
+          "warn"
+        );
+      }
+    }
+
+    function loadDefaultDataset(runImmediately = true) {
+      try {
+        const rows = parseCsvText(DEFAULT_DATASET_CSV);
+        state.rawRows = rows;
+        state.headers = Object.keys(rows[0] || {});
+        const suggestions = suggestMapping(state.headers);
+        state.datasetLabel = "Mall_Customers.csv";
+        document.getElementById("datasetLabel").value = state.datasetLabel;
+        renderMappingControls(state.headers, suggestions);
+        applyCurrentMapping(runImmediately);
+      } catch (error) {
+        setStatus("datasetStatus", `The built-in dataset could not be loaded. (${error.message})`, "danger");
+      }
+    }
+
+    function wireTabs() {
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".tab-button").forEach((item) => item.classList.remove("active"));
+          document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
+          button.classList.add("active");
+          document.getElementById(button.dataset.target).classList.add("active");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      });
+    }
+
+    function wireEvents() {
+      document.getElementById("clusterCount").addEventListener("input", refreshHero);
+      document.getElementById("normalizeToggle").addEventListener("change", refreshHero);
+      ["featureAge", "featureIncome", "featureSpending"].forEach((id) => {
+        document.getElementById(id).addEventListener("change", refreshHero);
+      });
+
+      document.getElementById("loadDefaultBtn").addEventListener("click", () => loadDefaultDataset(false));
+      document.getElementById("loadDefaultDatasetBtn").addEventListener("click", () => loadDefaultDataset(false));
+      document.getElementById("runAnalysisBtn").addEventListener("click", runAnalysis);
+      document.getElementById("runAnalysisHeroBtn").addEventListener("click", runAnalysis);
+      document.getElementById("saveRunBtn").addEventListener("click", saveRun);
+      document.getElementById("downloadResultsBtn").addEventListener("click", downloadResults);
+      document.getElementById("downloadResultsHeroBtn").addEventListener("click", downloadResults);
+
+      document.getElementById("parseUploadBtn").addEventListener("click", async () => {
+        const file = document.getElementById("datasetUpload").files[0];
+        if (!file) {
+          setStatus("uploadStatus", "Choose a CSV file first.", "warn");
+          return;
+        }
+        try {
+          const rows = await readUploadedCsv(file);
+          if (!rows.length) throw new Error("No rows were found in the uploaded CSV.");
+          state.rawRows = rows;
+          state.headers = Object.keys(rows[0] || {});
+          state.datasetLabel = file.name;
+          document.getElementById("datasetLabel").value = file.name;
+          renderMappingControls(state.headers, suggestMapping(state.headers));
+          clearAnalysisState("Upload parsed. Review the column mapping, then run clustering on the new dataset.");
+          setStatus(
+            "uploadStatus",
+            `Parsed ${formatNumber(rows.length)} raw rows from ${file.name}. Review the mappings, then apply them.`,
+            "success"
+          );
+        } catch (error) {
+          setStatus("uploadStatus", `The CSV could not be parsed. (${error.message})`, "danger");
+        }
+      });
+
+      document.getElementById("applyMappingBtn").addEventListener("click", () => applyCurrentMapping(true));
+      document.getElementById("previewOnlyBtn").addEventListener("click", () => applyCurrentMapping(false));
+    }
+
+    function boot() {
+      renderPlaceholderCharts();
+      initFirebase();
+      renderHistory();
+      wireTabs();
+      wireEvents();
+      refreshHero();
+      loadDefaultDataset(true);
+    }
+
+    window.addEventListener("DOMContentLoaded", boot);
+  </script>
+</body>
+</html>
